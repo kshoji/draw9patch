@@ -16,58 +16,60 @@
 
 package com.android.draw9patch.ui;
 
-import com.android.draw9patch.graphics.GraphicsUtilities;
+import java.awt.AWTEvent;
+import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.TexturePaint;
+import java.awt.Toolkit;
+import java.awt.event.AWTEventListener;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.awt.geom.Area;
+import java.awt.geom.Line2D;
+import java.awt.geom.Rectangle2D;
+import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-import javax.swing.JPanel;
-import javax.swing.JLabel;
 import javax.swing.BorderFactory;
-import javax.swing.JSlider;
-import javax.swing.JComponent;
-import javax.swing.JScrollPane;
-import javax.swing.JCheckBox;
 import javax.swing.Box;
-import javax.swing.JFileChooser;
-import javax.swing.JSplitPane;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComponent;
+import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSlider;
+import javax.swing.JSplitPane;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
-import javax.swing.event.ChangeListener;
 import javax.swing.event.ChangeEvent;
-import java.awt.image.BufferedImage;
-import java.awt.image.RenderedImage;
-import java.awt.Graphics2D;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Graphics;
-import java.awt.Dimension;
-import java.awt.TexturePaint;
-import java.awt.Shape;
-import java.awt.BasicStroke;
-import java.awt.RenderingHints;
-import java.awt.Rectangle;
-import java.awt.GridBagLayout;
-import java.awt.GridBagConstraints;
-import java.awt.Insets;
-import java.awt.Toolkit;
-import java.awt.AWTEvent;
-import java.awt.event.MouseMotionAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.AWTEventListener;
-import java.awt.geom.Rectangle2D;
-import java.awt.geom.Line2D;
-import java.awt.geom.Area;
-import java.awt.geom.RoundRectangle2D;
-import java.io.IOException;
-import java.io.File;
-import java.net.URL;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
+import javax.swing.event.ChangeListener;
+
+import com.android.draw9patch.graphics.GraphicsUtilities;
 
 class ImageEditorPanel extends JPanel {
     private static final String EXTENSION_9PATCH = ".9.png";
@@ -82,6 +84,7 @@ class ImageEditorPanel extends JPanel {
     private String name;
     private BufferedImage image;
     private boolean is9Patch;
+	private boolean samePatch;
 
     private ImageViewer viewer;
     private StretchesViewer stretchesViewer;
@@ -106,7 +109,7 @@ class ImageEditorPanel extends JPanel {
 
         setTransferHandler(new ImageTransferHandler(mainFrame));
 
-        checkImage();
+		checkImage(image);
 
         setOpaque(false);
         setLayout(new BorderLayout());
@@ -128,23 +131,25 @@ class ImageEditorPanel extends JPanel {
     }
 
     private void buildImageViewer() {
-        viewer = new ImageViewer();
-
-        JSplitPane splitter = new JSplitPane();
-        splitter.setContinuousLayout(true);
-        splitter.setResizeWeight(0.8);
-        splitter.setBorder(null);
-
-        JScrollPane scroller = new JScrollPane(viewer);
-        scroller.setOpaque(false);
-        scroller.setBorder(null);
-        scroller.getViewport().setBorder(null);
-        scroller.getViewport().setOpaque(false);
-
-        splitter.setLeftComponent(scroller);
-        splitter.setRightComponent(buildStretchesViewer());
-
-        add(splitter);
+		if (viewer == null) {
+			viewer = new ImageViewer();
+			
+			JSplitPane splitter = new JSplitPane();
+			splitter.setContinuousLayout(true);
+			splitter.setResizeWeight(0.8);
+			splitter.setBorder(null);
+			
+			JScrollPane scroller = new JScrollPane(viewer);
+			scroller.setOpaque(false);
+			scroller.setBorder(null);
+			scroller.getViewport().setBorder(null);
+			scroller.getViewport().setOpaque(false);
+			
+			splitter.setLeftComponent(scroller);
+			splitter.setRightComponent(buildStretchesViewer());
+			
+			add(splitter);
+		}
     }
 
     private JComponent buildStretchesViewer() {
@@ -273,7 +278,19 @@ class ImageEditorPanel extends JPanel {
                 GridBagConstraints.LINE_START, GridBagConstraints.NONE,
                 new Insets(0, 12, 0, 0), 0, 0));
 
-        status.add(Box.createHorizontalGlue(), new GridBagConstraints(6, 0, 1, 1, 1.0f, 1.0f,
+		JCheckBox sameSizeSamePatch = new JCheckBox("If same image size, apply previous patch when loading");
+		sameSizeSamePatch.setOpaque(false);
+		sameSizeSamePatch.setForeground(Color.WHITE);
+		sameSizeSamePatch.putClientProperty("JComponent.sizeVariant", "small");
+		sameSizeSamePatch.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent event) {
+				samePatch = ((JCheckBox) event.getSource()).isSelected();
+			}
+		});
+		status.add(sameSizeSamePatch, new GridBagConstraints(5, 1, 1, 1, 0.0f, 0.0f, //
+				GridBagConstraints.LINE_START, GridBagConstraints.NONE, new Insets(0, 12, 0, 0), 0, 0));
+		
+		status.add(Box.createHorizontalGlue(), new GridBagConstraints(6, 0, 1, 1, 1.0f, 1.0f,
                 GridBagConstraints.LINE_START, GridBagConstraints.BOTH,
                 new Insets(0, 0, 0, 0), 0, 0));
 
@@ -308,11 +325,12 @@ class ImageEditorPanel extends JPanel {
         add(status, BorderLayout.SOUTH);
     }
 
-    private void checkImage() {
+	private void checkImage(BufferedImage newImage) {
         is9Patch = name.endsWith(EXTENSION_9PATCH);
         if (!is9Patch) {
-            convertTo9Patch();
+			convertTo9Patch(newImage);
         } else {
+			image = newImage;
             ensure9Patch();
         }
     }
@@ -342,12 +360,20 @@ class ImageEditorPanel extends JPanel {
         }
     }
 
-    private void convertTo9Patch() {
-        BufferedImage buffer = GraphicsUtilities.createTranslucentCompatibleImage(
-                image.getWidth() + 2, image.getHeight() + 2);
+	private void convertTo9Patch(BufferedImage newImage) {
+		BufferedImage buffer;
+		if (samePatch && image.getWidth() - 2 == newImage.getWidth() && image.getHeight() - 2 == newImage.getHeight()) {
+			buffer = image;
+			Graphics2D g2 = buffer.createGraphics();
+			g2.setComposite(AlphaComposite.getInstance(AlphaComposite.CLEAR));
+			g2.fillRect(1, 1, newImage.getWidth(), newImage.getHeight());
+			g2.dispose();
+		} else {
+			buffer = GraphicsUtilities.createTranslucentCompatibleImage(newImage.getWidth() + 2, newImage.getHeight() + 2);
+		}
 
-        Graphics2D g2 = buffer.createGraphics();
-        g2.drawImage(image, 1, 1, null);
+		Graphics2D g2 = buffer.createGraphics();
+		g2.drawImage(newImage, 1, 1, null);
         g2.dispose();
 
         image = buffer;
@@ -355,11 +381,15 @@ class ImageEditorPanel extends JPanel {
     }
 
     File chooseSaveFile() {
-        if (is9Patch) {
+		if (is9Patch || !new File(name).exists()) {
+			is9Patch = true;
+
             return new File(name);
         } else {
             JFileChooser chooser = new JFileChooser(
-                    name.substring(0, name.lastIndexOf(File.separatorChar)));
+name.substring(0, name.lastIndexOf(File.separatorChar)));
+			chooser.setName(name.substring(name.lastIndexOf(File.separatorChar)));
+			chooser.setSelectedFile(new File(name));
             chooser.setFileFilter(new PngFileFilter());
             int choice = chooser.showSaveDialog(this);
             if (choice == JFileChooser.APPROVE_OPTION) {
@@ -735,16 +765,16 @@ class ImageEditorPanel extends JPanel {
                     // changed state).
                     currentButton = event.isShiftDown() ? MouseEvent.BUTTON3 : event.getButton();
                     currentButton = event.isControlDown() ? MouseEvent.BUTTON2 : currentButton;
-                    paint(event.getX(), event.getY(), currentButton);
+
+					paint(event.getX(), event.getY(), currentButton, false);
                 }
             });
             addMouseMotionListener(new MouseMotionAdapter() {
                 @Override
                 public void mouseDragged(MouseEvent event) {
-                    if (!checkLockedRegion(event.getX(), event.getY())) {
-                        // use the stored button, see note above
-                        paint(event.getX(), event.getY(),  currentButton);
-                    }
+					checkLockedRegion(event.getX(), event.getY());
+					
+					paint(event.getX(), event.getY(), currentButton, true);
                 }
 
                 @Override
@@ -857,7 +887,9 @@ class ImageEditorPanel extends JPanel {
             }
         }
 
-        private void paint(int x, int y, int button) {
+		private int lastX = -1;
+		private int lastY = -1;
+        private void paint(int x, int y, int button, boolean dragging) {
             int color;
             switch (button) {
                 case MouseEvent.BUTTON1:
@@ -879,17 +911,85 @@ class ImageEditorPanel extends JPanel {
             x = (x - left) / zoom;
             y = (y - top) / zoom;
 
-            int width = image.getWidth();
-            int height = image.getHeight();
+			int width = image.getWidth();
+			int height = image.getHeight();
+
+			if (dragging) {
+				if (lastX == 0) {
+					x = 0;
+				}
+				if (lastY == 0) {
+					y = 0;
+				}
+				if (lastX == width - 1) {
+					x = width - 1;
+				}
+				if (lastY == height - 1) {
+					y = height - 1;
+				}
+			} else {
+				int distanceFromEdge = x;
+				int pointX = 0;
+				int pointY = y;
+				
+				if (distanceFromEdge > y) {
+					distanceFromEdge = y;
+					
+					pointX = x;
+					pointY = 0;
+				}
+				if (distanceFromEdge > (width - x - 1)) {
+					distanceFromEdge = (width - x - 1);
+					
+					pointX = width - 1;
+					pointY = y;
+				}
+				if (distanceFromEdge > (height - y - 1)) {
+					distanceFromEdge = height - y - 1;
+					
+					pointX = x;
+					pointY = height - 1;
+				}
+				
+				x = pointX;
+				y = pointY;
+			}
+
             if (((x == 0 || x == width - 1) && (y > 0 && y < height - 1)) ||
                     ((x > 0 && x < width - 1) && (y == 0 || y == height - 1))) {
-                image.setRGB(x, y, color);
+				if (dragging) {
+					if (x < lastX) {
+						for (int i = x; i < lastX; i++) {
+							image.setRGB(i, y, color);
+						}
+					}
+					if (x > lastX) {
+						for (int i = lastX; i < x; i++) {
+							image.setRGB(i, y, color);
+						}
+					}
+					if (y < lastY) {
+						for (int i = y; i < lastY; i++) {
+							image.setRGB(x, i, color);
+						}
+					}
+					if (y > lastY) {
+						for (int i = lastY; i < y; i++) {
+							image.setRGB(x, i, color);
+						}
+					}
+				}
+				image.setRGB(x, y, color);
+
                 findPatches();
                 stretchesViewer.computePatches();
                 if (showBadPatches) {
                     findBadPatches();
                 }
                 repaint();
+				
+				lastX = x;
+				lastY = y;
             }
         }
 
@@ -1033,6 +1133,10 @@ class ImageEditorPanel extends JPanel {
         public Dimension getPreferredSize() {
             return size;
         }
+
+		int getZoom() {
+			return zoom;
+		}
 
         void setZoom(int value) {
             int width = image.getWidth();
@@ -1214,4 +1318,21 @@ class ImageEditorPanel extends JPanel {
             return "Pair[" + first + ", " + second + "]";
         }
     }
+	
+	public void setImage(BufferedImage newImage, String newName) {
+		this.name = newName;
+		
+		checkImage(newImage);
+		
+		buildImageViewer();
+		
+		viewer.setZoom(viewer.getZoom());
+		viewer.findPatches();
+		stretchesViewer.computePatches();
+		if (viewer.showBadPatches) {
+			viewer.findBadPatches();
+		}
+
+		repaint();
+	}
 }

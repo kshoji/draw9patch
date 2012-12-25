@@ -16,24 +16,25 @@
 
 package com.android.draw9patch.ui;
 
-import com.android.draw9patch.ui.action.ExitAction;
-import com.android.draw9patch.ui.action.OpenAction;
-import com.android.draw9patch.ui.action.SaveAction;
-import com.android.draw9patch.graphics.GraphicsUtilities;
-
-import javax.swing.JFrame;
-import javax.swing.JMenuBar;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.ActionMap;
-import javax.swing.JFileChooser;
-import javax.imageio.ImageIO;
 import java.awt.HeadlessException;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.concurrent.ExecutionException;
 
+import javax.imageio.ImageIO;
+import javax.swing.ActionMap;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+
 import org.jdesktop.swingworker.SwingWorker;
+
+import com.android.draw9patch.graphics.GraphicsUtilities;
+import com.android.draw9patch.ui.action.ExitAction;
+import com.android.draw9patch.ui.action.OpenAction;
+import com.android.draw9patch.ui.action.SaveAction;
 
 public class MainFrame extends JFrame {
     private ActionMap actionsMap;
@@ -120,7 +121,11 @@ public class MainFrame extends JFrame {
 
     void showImageEditor(BufferedImage image, String name) {
         getContentPane().removeAll();
-        imageEditor = new ImageEditorPanel(this, image, name);
+		if (imageEditor == null) {
+			imageEditor = new ImageEditorPanel(this, image, name);
+		} else {
+			imageEditor.setImage(image, name);
+		}
         add(imageEditor);
         saveMenuItem.setEnabled(true);
         validate();
